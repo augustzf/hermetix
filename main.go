@@ -22,15 +22,24 @@ func main() {
 	if host == "" {
 		panic("Missing env: HOST")
 	}
-	handler := func(rec, msg string) error {
+
+	imessage(func(rec, msg string) error {
+		log.Printf("Send msg to %v", rec)
 		return hostExec(user, host, sendMsg(rec, msg))
-	}
-	serve(handler)
+	})
+
+	xcrun(func(cmd string) error {
+		cl := fmt.Sprintf("xcrun %v", cmd)
+		log.Println(cl)
+		return hostExec(user, host, cl)
+	})
+
+	fmt.Println("Listening on port 443")
+	log.Fatal(http.ListenAndServeTLS(":443", "tls/hermetix.pem", "tls/hermetix.key", nil))
 }
 
-// process http requests on port 8009
-func serve(fn handler) {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+func imessage(fn func(string, string) error) {
+	http.HandleFunc("/imessage", func(w http.ResponseWriter, r *http.Request) {
 		rec := r.URL.Query().Get("rec")
 		msg := r.URL.Query().Get("msg")
 		if rec == "" || msg == "" {
@@ -40,14 +49,27 @@ func serve(fn handler) {
 		fn(rec, msg)
 		w.WriteHeader(http.StatusOK)
 	})
-	fmt.Println("Listening on port 8009")
-	log.Fatal(http.ListenAndServe(":8009", nil))
+}
+
+func xcrun(fn func(string) error) {
+	http.HandleFunc("/xcrun", func(w http.ResponseWriter, r *http.Request) {
+		cmd := r.URL.Query().Get("cmd")
+		if cmd == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		log.Println(cmd)
+		fn(cmd)
+		w.WriteHeader(http.StatusOK)
+	})
 }
 
 // run command on Docker host
 func hostExec(username, host, hostCmd string) error {
 	// this assumes the user's public key has been added to ~/.ssh/authorized_keys
-	cmd := exec.Command("ssh", "-o", "StrictHostKeyChecking=no", "-i", "./ssh/id_rsa",
+	cmd := exec.Command("ssh",
+		"-o", "StrictHostKeyChecking=no",
+		"-i", "./ssh/id_rsa",
 		fmt.Sprintf("%v@%v", username, host), hostCmd)
 	return cmd.Run()
 }

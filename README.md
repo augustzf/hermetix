@@ -1,17 +1,17 @@
 # Hermetix
 
-Hermetix is a Docker container that provides simple REST API for sending iMessages. The messages will be sent from the current user on the Docker host machine.
+Hermetix makes certain dev tools available on the Docker host from Docker containers.
 
-This is quite useful for development environments where you need a quick way to send messages via iMessage, as an alternative to using SMS.
+It provides a REST API for sending messages via the Messages app on the host and for running developer tools via xcrun. 
 
 ## Limitations
 
 - Works only on OS X.
-- Messages will only be sent to recipients if there is *already an existing dialogue* with the user on the host. Otherwise, the request will be ignored.
+- Messages via the Messages app will only be sent to recipients if there is *already an existing dialogue* with the user on the host. Otherwise, the request will be silently ignored.
 
 ## Setup
 
-Make sure the host is running the SSH daemon
+Make sure the host is running the SSH daemon:
 
     sudo systemsetup -setremotelogin on
 
@@ -27,15 +27,16 @@ The current user's SSH public key must be added to ~/.ssh/authorized_keys.
 
 To start the container:
 
-    docker run -p 8009:8009 -e USER=`whoami` -e HOST=`ipconfig getifaddr en0` -v ~/.ssh/:/app/ssh  augustzf/hermetix
+    docker run -p 443:443 -e USER=`whoami` -e HOST=`ipconfig getifaddr en0` -v ~/.ssh/:/app/ssh  augustzf/hermetix
 
 ## Usage
 
 To send a message from the host:
 
-    curl "http://localhost:8009?msg=<message>&rec=<email or mobile number>"
+    http --verify=tls/DooraRootCA.pem get "https://hermetix?msg=<message>&rec=<email or mobile number>"
 
 Where `msg` is the message to be sent and `rec` is the recipient. `rec` can be a mobile number or email address.
 
 To send messages from other orchestrated containers, make sure you use the right hostname.
 
+Note that Hermetix uses its own self-signed certificate. 
